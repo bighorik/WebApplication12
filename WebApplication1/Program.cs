@@ -1,6 +1,12 @@
 
 using Application.Behaviour.Course;
+using Infrastructure;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.OpenApi;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 using Persistence;
+using System.Text;
 
 namespace WebApplication1
 {
@@ -14,9 +20,31 @@ namespace WebApplication1
 
             builder.Services.AddControllers();
             // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-            builder.Services.AddOpenApi();
+            builder.Services.AddOpenApi(options =>
+            {
+                options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
+            });
             builder.Services.AddMediatR(config => config.RegisterServicesFromAssembly(typeof(CreateCourseCommand).Assembly));
             builder.Services.AddPersistence(builder.Configuration);
+            builder.Services.AddServices(builder.Configuration);
+
+            builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                            .AddJwtBearer(options =>
+                            {
+                                options.TokenValidationParameters = new TokenValidationParameters
+                                {
+                                    ValidateIssuer = true,
+                                    ValidateAudience = true,
+                                    ValidateLifetime = true,
+                                    ValidateIssuerSigningKey = true,
+                                    ValidIssuer = builder.Configuration["JwtSettings:Issuer"],
+                                    ValidAudience = builder.Configuration["JwtSettings:Audience"],
+                                    IssuerSigningKey = new SymmetricSecurityKey(
+                                        Encoding.UTF8.GetBytes(builder.Configuration["JwtSettings:Secret"]!))
+                                };
+                            });
+
+            builder.Services.AddAuthorization(); // Добавляем сервисы авторизации
 
             var app = builder.Build();
 
@@ -28,10 +56,12 @@ namespace WebApplication1
                 {
                     options.SwaggerEndpoint("/openapi/v1.json", "v1");
                 });
+
             }
 
             app.UseHttpsRedirection();
 
+            app.UseAuthentication();
             app.UseAuthorization();
 
 
@@ -43,3 +73,37 @@ namespace WebApplication1
         }
     }
 }
+
+
+public class BearerSecuritySchemeTransformer : IOpenApiDocumentTransformer
+{
+    public Task TransformAsync(OpenApiDocument document, OpenApiDocumentTransformerContext context, CancellationToken cancellationToken)
+    {
+        // 1. Добавление определения схемы безопасности (Security Scheme)
+        document.Components ??= new OpenApiComponents();
+        document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
+
+        document.Components.SecuritySchemes["Bearer"] = new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            In = ParameterLocation.Header,
+            Description = "Введите JWT Token (без префикса Bearer)"
+        };
+
+        // 2. Применение глобального требования безопасности (чтобы появилась кнопка Authorize)
+        document.Security = new List<OpenApiSecurityRequirement>
+        {
+            new OpenApiSecurityRequirement
+            {
+                // Ключевой момент: используем OpenApiSecuritySchemeReference и передаём документ
+                [new OpenApiSecuritySchemeReference("Bearer", document)] = new List<string>()
+            }
+        };
+
+        return Task.CompletedTask;
+    }
+}
+
+// Регистрация в builder
