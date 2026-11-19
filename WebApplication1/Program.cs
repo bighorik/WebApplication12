@@ -42,6 +42,21 @@ namespace WebApplication1
                                     IssuerSigningKey = new SymmetricSecurityKey(
                                         Encoding.UTF8.GetBytes(builder.Configuration["JwtSettings:Secret"]!))
                                 };
+
+                                options.Events = new JwtBearerEvents
+                                {
+                                    OnMessageReceived = context =>
+                                    {
+                                        string? accessToken = context.Request.Cookies["accessToken"];
+
+                                        if (!string.IsNullOrEmpty(accessToken))
+                                        {
+                                            context.Token = accessToken;
+                                        }
+
+                                        return Task.CompletedTask;
+                                    }
+                                };
                             });
 
             builder.Services.AddAuthorization(); // Добавляем сервисы авторизации
@@ -58,6 +73,12 @@ namespace WebApplication1
                 });
 
             }
+            app.UseCors(config => {
+                config.AllowAnyHeader();
+                config.AllowAnyMethod();
+                config.AllowCredentials();
+                config.WithOrigins("");
+            });
 
             app.UseHttpsRedirection();
 
@@ -66,6 +87,8 @@ namespace WebApplication1
 
 
             app.MapControllers();
+
+            
 
             await app.Services.RunMigration();
 

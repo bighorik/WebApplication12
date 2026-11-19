@@ -3,6 +3,7 @@ using Domain.Entities;
 using Mapster;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using WebApi.Dto.Course;
 
 namespace WebApplication1.Controllers
@@ -19,7 +20,7 @@ namespace WebApplication1.Controllers
                 Name = dto.Name,
                 Description = dto.Description,
                 Tags = dto.Tags,
-                AuthorId = Guid.Parse("75a18735-0074-4678-93cb-eebd5c57fc18")
+                AuthorId = Guid.Parse(User.FindFirstValue("sub")!)
             };
 
             CourseEntity result = await mediator.Send(command);

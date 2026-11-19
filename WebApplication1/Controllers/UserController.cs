@@ -27,6 +27,27 @@ namespace WebApplication1.Controllers
         {
             AccessPair result = await mediator.Send(dto.Adapt<LoginCommand>());
 
+            CookieOptions accessOptions = new()
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTimeOffset.UtcNow.AddMinutes(15),
+                Path = "/"
+            };
+
+            CookieOptions refreshOptions = new()
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTimeOffset.UtcNow.AddDays(28),
+                Path = "/"
+            };
+
+            Response.Cookies.Append("accessToken", result.AccessToken, accessOptions);
+            Response.Cookies.Append("refreshToken", result.RefreshToken, refreshOptions);
+
             return result;
         }
 
@@ -37,6 +58,9 @@ namespace WebApplication1.Controllers
 
             return HttpContext.User.IsInRole("Admin");
         }
+
+
+
     }
 
     public class  RegisterDto

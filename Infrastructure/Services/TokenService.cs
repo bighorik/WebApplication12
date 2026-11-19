@@ -39,6 +39,7 @@ namespace Infrastructure.Services
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 
+
             SymmetricSecurityKey key = new(Encoding.UTF8.GetBytes(_secret));
             SigningCredentials creds = new(key, SecurityAlgorithms.HmacSha256);
 
